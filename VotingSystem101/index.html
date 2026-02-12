@@ -3,16 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BeatVote | 2026 Admin</title>
+    <title>BeatVote | Premium Edition</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div class="glass-card">
         <div class="sidebar">
-            <h1 class="logo" id="adminToggle" onclick="toggleAdmin()">🎵 Spotipey<span>Vote</span></h1>
+            <h1 class="logo" id="adminToggle" onclick="toggleAdmin()">🎵 Spotipoi<span>Vote</span></h1>
             
-            <div class="total-stats">
+            <div class="user-section">
+                <p class="label">Current Voter:</p>
+                <h3 id="currentUserDisplay">Guest</h3>
+                <button class="add-user-btn" onclick="addNewUser()">👤 Add / Switch User</button>
+            </div>
+
+            <div class="stat-box">
                 <p>Global Total Votes</p>
                 <h2 id="globalVotes">0</h2>
             </div>
@@ -22,6 +28,8 @@
                 <button class="tab-btn" onclick="changeGenre('Rock', this)">Rock</button>
                 <button class="tab-btn" onclick="changeGenre('Pop', this)">Pop</button>
             </div>
+
+            <button class="leaderboard-btn" onclick="toggleWinners()">🏆 View Winners</button>
             
             <div class="vote-log">
                 <p class="label">Recent Activity</p>
@@ -32,19 +40,30 @@
         <div class="main-panel">
             <div class="header-row">
                 <h2 id="genreTitle">OPM Face-Off</h2>
-                <div id="lockStatus" class="lock-status"></div>
+                <div id="lockStatus" class="lock-status">READY</div>
             </div>
 
             <div class="band-grid" id="bandGrid"></div>
 
             <div class="status-bar">
-                <p id="statusText">One vote per category. (Unless Admin is active)</p>
-                <button id="resetBtn" onclick="resetVotes()">Full Data Reset</button>
+                <p id="statusText">One vote per category per user.</p>
+                <div class="reset-actions">
+                    <button class="clear-user-btn" onclick="resetUserChoices()">🔄 Clear My Choices</button>
+                    <button class="reset-link" onclick="fullSystemReset()">Wipe Entire Notebook</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="toast" class="toast">Vote Counted!</div>
+    <div id="winnerOverlay" class="overlay">
+        <div class="winner-content">
+            <button class="close-btn" onclick="toggleWinners()">×</button>
+            <h2 style="color: var(--theme-color);">Genre Leaders</h2>
+            <div id="winnerList" class="winner-grid"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">Vote Recorded! 🚀</div>
 
     <script src="script.js"></script>
 </body>

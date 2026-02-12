@@ -7,78 +7,90 @@ const defaultData = {
           { id: "p2", name: "Paramore", img: "https://scontent.fmnl25-1.fna.fbcdn.net/v/t1.15752-9/589743933_1815947835731577_1712916203911002319_n.png?_nc_cat=103&ccb=1-7&_nc_sid=9f807c&_nc_eui2=AeErkCXAnlDMegeUSFr7wfdSOeqRj9qw5gI56pGP2rDmAhwdGa3Aq0EOXCjYHQfyI59A41yHU0jkDHjaDXurREo6&_nc_ohc=7LPU0H302doQ7kNvwGxNK_F&_nc_oc=Adkhc89mvkFuyfN-AqZ2gym3yjknRf-WQiNdrpCwTqOuT-tJJb5yzqUG2A8tRpt_x34&_nc_zt=23&_nc_ht=scontent.fmnl25-1.fna&oh=03_Q7cD4gGhXbunDjbrg1XxiE0fKFlekCIPjyXvUL5NKReen3k6Sw&oe=69B4B144", votes: 0 }]
 };
 
-let musicData = JSON.parse(localStorage.getItem('bVoteData')) || defaultData;
-let voteHistory = JSON.parse(localStorage.getItem('bVoteHist')) || [];
-let currentGenre = 'OPM';
-let isAdmin = false; // Initialized to False
+const themes = { 'OPM': '#f1c40f', 'Rock': '#e74c3c', 'Pop': '#f368e0' };
 
-function toggleAdmin() {
-    isAdmin = !isAdmin;
-    const logo = document.getElementById('adminToggle');
-    logo.classList.toggle('admin-on');
-    alert(isAdmin ? "Admin Mode Active: Unlimited Voting" : "Admin Mode Off: Rules Applied");
-    renderGrid();
+let musicData = JSON.parse(localStorage.getItem('bVote_D')) || defaultData;
+let voteHist = JSON.parse(localStorage.getItem('bVote_H')) || [];
+let userDB = JSON.parse(localStorage.getItem('bVote_U')) || {};
+let currentUser = localStorage.getItem('bVote_Curr') || "Guest";
+let currentGenre = 'OPM';
+let isAdmin = false;
+
+function addNewUser() {
+    const name = prompt("Enter voter name:");
+    if (name && name.trim()) {
+        currentUser = name.trim();
+        if (!userDB[currentUser]) userDB[currentUser] = [];
+        localStorage.setItem('bVote_Curr', currentUser);
+        localStorage.setItem('bVote_U', JSON.stringify(userDB));
+        renderGrid();
+    }
 }
 
 function renderGrid() {
     const grid = document.getElementById('bandGrid');
     const lockText = document.getElementById('lockStatus');
+    document.getElementById('currentUserDisplay').innerText = currentUser;
+    document.documentElement.style.setProperty('--theme-color', themes[currentGenre]);
     grid.innerHTML = "";
     
-    // In Admin mode, we ignore the local voted status
-    const hasVoted = isAdmin ? false : localStorage.getItem(`voted_${currentGenre}`);
+    const hasVoted = isAdmin ? false : (userDB[currentUser] && userDB[currentUser].includes(currentGenre));
+    const totalGenreVotes = musicData[currentGenre].reduce((s, b) => s + b.votes, 0);
 
-    lockText.innerText = isAdmin ? "MODE: UNLIMITED" : (hasVoted ? "LOCKED" : "READY");
+    lockText.innerText = hasVoted ? "VOTED" : "READY";
     lockText.className = hasVoted ? "lock-status locked" : "lock-status";
 
     musicData[currentGenre].forEach(band => {
+        const percent = totalGenreVotes > 0 ? Math.round((band.votes / totalGenreVotes) * 100) : 0;
         const card = document.createElement('div');
         card.className = `band-card ${hasVoted ? 'disabled' : ''}`;
-        
         card.onclick = () => castVote(band);
-        
         card.innerHTML = `
-            <img src="${band.img}" alt="${band.name}">
-            <h3>${band.name}</h3>
-            <p>${band.votes} Votes</p>
+            <img src="${band.img}">
+            <div style="margin-top:10px; overflow:hidden;">
+                <span class="percent-txt">${percent}%</span>
+                <h3 style="margin:0; text-align:left; font-size:1.1rem;">${band.name}</h3>
+            </div>
+            <div class="bar-container">
+                <div class="bar-bg"><div class="bar-fill" style="width:${percent}%"></div></div>
+                <p style="font-size:0.65rem; color:#64748b; margin:5px 0 0;">${band.votes} votes</p>
+            </div>
         `;
         grid.appendChild(card);
     });
-    
-    updateGlobalTotal();
-    updateHistoryUI();
+    updateStats();
 }
 
 function castVote(band) {
-    const hasVoted = localStorage.getItem(`voted_${currentGenre}`);
-    if (hasVoted && !isAdmin) return; // Block if not admin
+    if ((userDB[currentUser] && userDB[currentUser].includes(currentGenre)) && !isAdmin) return;
+    
+    musicData[currentGenre].find(b => b.id === band.id).votes++;
+    if (!userDB[currentUser]) userDB[currentUser] = [];
+    userDB[currentUser].push(currentGenre);
+    voteHist.push({ b: band.name, u: currentUser });
 
-    // Find band and increment
-    const bandRef = musicData[currentGenre].find(b => b.id === band.id);
-    bandRef.votes++;
-
-    voteHistory.push({
-        name: band.name,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    });
-
-    if (!isAdmin) {
-        localStorage.setItem(`voted_${currentGenre}`, "true");
-    }
-
-    localStorage.setItem('bVoteData', JSON.stringify(musicData));
-    localStorage.setItem('bVoteHist', JSON.stringify(voteHistory));
+    localStorage.setItem('bVote_D', JSON.stringify(musicData));
+    localStorage.setItem('bVote_U', JSON.stringify(userDB));
+    localStorage.setItem('bVote_H', JSON.stringify(voteHist));
 
     renderGrid();
-    showToast();
+    const t = document.getElementById('toast'); t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1500);
 }
 
-function updateGlobalTotal() {
+function updateStats() {
     let total = 0;
-    for (let g in musicData) {
-        musicData[g].forEach(b => total += b.votes);
-    }
+    for (let g in musicData) musicData[g].forEach(b => total += b.votes);
     document.getElementById('globalVotes').innerText = total;
+
+    const list = document.getElementById('historyList');
+    list.innerHTML = "";
+    voteHist.slice(-3).reverse().forEach(h => {
+        const li = document.createElement('li');
+        li.style.fontSize = "0.75rem"; li.style.marginBottom = "5px";
+        li.innerText = `• ${h.u} picked ${h.b}`;
+        list.appendChild(li);
+    });
 }
 
 function changeGenre(genre, btn) {
@@ -89,27 +101,41 @@ function changeGenre(genre, btn) {
     renderGrid();
 }
 
-function updateHistoryUI() {
-    const list = document.getElementById('historyList');
-    list.innerHTML = "";
-    voteHistory.slice(-3).reverse().forEach(item => {
-        const li = document.createElement('li');
-        li.innerText = `• ${item.name} at ${item.time}`;
-        list.appendChild(li);
-    });
-}
-
-function showToast() {
-    const toast = document.getElementById('toast');
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 1500);
-}
-
-function resetVotes() {
-    if(confirm("Wipe everything?")) {
-        localStorage.clear();
-        location.reload();
+function toggleWinners() {
+    const overlay = document.getElementById('winnerOverlay');
+    overlay.classList.toggle('active');
+    if (overlay.classList.contains('active')) {
+        const winList = document.getElementById('winnerList');
+        winList.innerHTML = "";
+        for (let g in musicData) {
+            const winner = [...musicData[g]].sort((a,b) => b.votes - a.votes)[0];
+            winList.innerHTML += `
+                <div class="winner-card">
+                    <small style="color:${themes[g]}">${g} LEADER</small>
+                    <img src="${winner.img}" style="margin:10px 0;">
+                    <h4>${winner.name}</h4>
+                    <p style="font-size:0.8rem;">${winner.votes} Votes</p>
+                </div>`;
+        }
     }
+}
+
+function resetUserChoices() {
+    if(confirm(`Clear choices for ${currentUser}?`)) {
+        delete userDB[currentUser];
+        localStorage.setItem('bVote_U', JSON.stringify(userDB));
+        renderGrid();
+    }
+}
+
+function fullSystemReset() {
+    if(confirm("Wipe all data?")) { localStorage.clear(); location.reload(); }
+}
+
+function toggleAdmin() {
+    isAdmin = !isAdmin;
+    document.getElementById('adminToggle').classList.toggle('admin-on');
+    renderGrid();
 }
 
 renderGrid();
